@@ -99,7 +99,6 @@ impl TcpHeader {
 
         println!("  Payload ({} bytes)", self.payload.len());
         if show_payload {
-            println!("  {:02x?}", self.payload);
             for (i, data) in self.payload.iter().enumerate() {
                 if i % 16 == 0 {
                     print!("\n{:04x}    ", i);
