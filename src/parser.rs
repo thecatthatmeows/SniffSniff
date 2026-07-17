@@ -3,6 +3,14 @@ use std::fmt::Display;
 use crate::ethertypes::Ethertype;
 use crate::ports::Port;
 
+fn ascii_repr(byte: u8) -> char {
+    if byte.is_ascii_graphic() || byte == b' ' {
+        byte as char
+    } else {
+        '.'
+    }
+}
+
 pub struct EthernetHeader {
     pub dst_mac: Vec<u8>,
     pub src_mac: Vec<u8>,
@@ -99,12 +107,9 @@ impl TcpHeader {
 
         println!("  Payload ({} bytes)", self.payload.len());
         if show_payload {
-            for (i, data) in self.payload.iter().enumerate() {
-                if i % 16 == 0 {
-                    print!("\n{:04x}    ", i);
-                }
-
-                print!("{:02x} ", data)
+            for (i, chunk) in self.payload.chunks(16).enumerate() {
+                let ascii: String = chunk.iter().map(|b| ascii_repr(*b)).collect();
+                println!("{:04x}    {:02x?}  |  {}", i*16, chunk, ascii);
             }
         }
     }
