@@ -6,4 +6,5 @@ edition = "2024"
 [dependencies]
 clap = { version = "4.6.2", features = ["derive"] }
 colored = "3.1.1"
+netstat2 = "0.11.2"
 pcap = "2.4.0"

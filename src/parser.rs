@@ -244,7 +244,7 @@ pub fn parse_tcp_ipv4(data: &[u8]) -> Option<ParsedPacket> {
         ttl: ip[8],
         protocol: ip[9],
     };
-    
+
     let total_len = u16::from_be_bytes([ip[2], ip[3]]);
     if ip.len() < total_len as usize { return None; }
     if ip.len() < ihl as usize { return None; }
