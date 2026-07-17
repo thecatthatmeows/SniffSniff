@@ -3,12 +3,28 @@ mod parser;
 mod ports;
 mod cli;
 
+use std::collections::HashMap;
+
 use clap::Parser;
+use netstat2::{AddressFamilyFlags, ProtocolFlags, ProtocolSocketInfo, get_sockets_info};
 use pcap::Capture;
 use crate::{cli::Args, parser::DisplayPacketOptions};
 
 fn main() {
     let args = Args::parse();
+
+    let af_flags = AddressFamilyFlags::all();
+    let proto_flags = ProtocolFlags::all();
+    let sockets_info = get_sockets_info(af_flags, proto_flags).expect("Couldn't get sockets info");
+
+    let mut port_to_pids: HashMap<u16, Vec<u32>> = HashMap::new();
+    for si in &sockets_info {
+        let port = match &si.protocol_socket_info {
+            ProtocolSocketInfo::Tcp(tcp) => tcp.local_port,
+            ProtocolSocketInfo::Udp(udp) => udp.local_port,
+        };
+        port_to_pids.insert(port, si.associated_pids.clone());
+    }
 
     println!("Capturing");
     let mut cap = Capture::from_device("wlp0s20f3").unwrap()

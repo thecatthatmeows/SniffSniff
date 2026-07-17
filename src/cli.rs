@@ -5,5 +5,8 @@ use clap::Parser;
 pub struct Args {
     #[arg(short, long, default_value_t=false)]
     pub show_payload: bool,
+
+    #[arg(short, long)]
+    pub process_uid: Option<u32>
 }
 
