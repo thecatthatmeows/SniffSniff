@@ -214,8 +214,6 @@ pub struct ParsedPacket {
 
 impl ParsedPacket {
     pub async fn print(&self, display_options: Option<DisplayPacketOptions>) {
-        let mut sys = System::new_all();
-
         if let Some(options) = display_options {
             // println!("Options detected");
             if let Some(filter_pid) = options.filter_by_pid {

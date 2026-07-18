@@ -16,15 +16,11 @@ lazy_static! {
     pub static ref PORT_TO_PIDS: RwLock<HashMap<u16, Vec<u32>>> = RwLock::new(HashMap::new());
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Args::parse();
-
+fn create_port_to_pids_map() -> HashMap<u16, Vec<u32>> {
     let af_flags = AddressFamilyFlags::all();
     let proto_flags = ProtocolFlags::all();
     let sockets_info = get_sockets_info(af_flags, proto_flags).expect("Couldn't get sockets info");
 
-    // set every processes sockets ports first
     let mut port_to_pids: HashMap<u16, Vec<u32>> = HashMap::new();
     for si in &sockets_info {
         let port = match &si.protocol_socket_info {
@@ -34,10 +30,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         port_to_pids.entry(port).or_default()
             .extend(si.associated_pids.iter().copied());
     }
-    {
-        let mut w = PORT_TO_PIDS.write().await;
-        *w = port_to_pids;
-    }
+
+    port_to_pids
+}
+
+async fn refresh_port_to_pids_map() {
+    let port_to_pids = create_port_to_pids_map();
+    let mut w = PORT_TO_PIDS.write().await;
+    *w = port_to_pids;
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+
+    // let mut sys = System::new_all();
+    refresh_port_to_pids_map().await;
 
     println!("Capturing");
     let mut cap = Capture::from_device("wlp0s20f3").unwrap()
@@ -51,6 +59,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut packet_count = 0;
     while let Ok(packet) = cap.next_packet() {
+        if packet_count % 100 == 0 {
+            refresh_port_to_pids_map().await;
+        }
         packet_count += 1;
         let data = packet.data;
 
