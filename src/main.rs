@@ -4,7 +4,6 @@ mod ports;
 mod cli;
 
 use std::collections::HashMap;
-use sysinfo::{System, Pid};
 use clap::Parser;
 use netstat2::{AddressFamilyFlags, ProtocolFlags, ProtocolSocketInfo, get_sockets_info};
 use pcap::Capture;

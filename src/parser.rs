@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use sysinfo::{Pid, ProcessesToUpdate, System};
-
 use crate::ethertypes::Ethertype;
 use crate::ports::Port;
 use crate::PORT_TO_PIDS;
@@ -118,7 +116,7 @@ impl TcpHeader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TlsContentType {
     ChangeCipherSpec,
     Alert,
@@ -244,6 +242,280 @@ impl ParsedPacket {
             self.tcp.print(true);
             self.tls.print();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use super::*;
+
+    fn build_tcp_ipv4_packet(
+        src_port: u16,
+        dst_port: u16,
+        flags: u8,
+        tls_content_type: u8,
+        tls_version: u16,
+    ) -> Vec<u8> {
+        let mut packet = Vec::new();
+
+        // Ethernet header (14 bytes)
+        packet.extend_from_slice(&[0x00, 0x11, 0x22, 0x33, 0x44, 0x55]); // dst MAC
+        packet.extend_from_slice(&[0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb]); // src MAC
+        packet.extend_from_slice(&[0x08, 0x00]); // ethertype: IPv4
+
+        // IPv4 header (20 bytes, no options)
+        let total_len: u16 = 20 + 20 + 5; // IP + TCP + TLS payload
+        packet.push(0x45); // version=4, ihl=5
+        packet.push(0x00); // DSCP/ECN
+        packet.extend_from_slice(&total_len.to_be_bytes()); // total length
+        packet.extend_from_slice(&[0x00, 0x00]); // identification
+        packet.extend_from_slice(&[0x00, 0x00]); // flags + fragment offset
+        packet.push(64); // TTL
+        packet.push(6); // protocol: TCP
+        packet.extend_from_slice(&[0x00, 0x00]); // checksum (ignored in test)
+        packet.extend_from_slice(&[10, 0, 0, 1]); // src IP
+        packet.extend_from_slice(&[10, 0, 0, 2]); // dst IP
+
+        // TCP header (20 bytes minimum)
+        packet.extend_from_slice(&src_port.to_be_bytes());
+        packet.extend_from_slice(&dst_port.to_be_bytes());
+        packet.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // seq number
+        packet.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // ack number
+        packet.push(0x50); // data offset=5, reserved=0
+        packet.push(flags); // flags
+        packet.extend_from_slice(&[0x00, 0x00]); // window size
+        packet.extend_from_slice(&[0x00, 0x00]); // checksum
+        packet.extend_from_slice(&[0x00, 0x00]); // urgent pointer
+
+        // TLS payload (5 bytes minimum)
+        packet.push(tls_content_type);
+        let version_bytes = tls_version.to_be_bytes();
+        packet.extend_from_slice(&version_bytes);
+        packet.extend_from_slice(&[0x00, 0x01]); // length: 1 byte
+
+        packet
+    }
+
+    #[test]
+    fn test_parse_valid_tcp_ipv4() {
+        let packet = build_tcp_ipv4_packet(12345, 443, 0x12, 22, 0x0303);
+        let parsed = parse_tcp_ipv4(&packet).expect("should parse successfully");
+
+        assert_eq!(parsed.tcp.src_port.port, 12345);
+        assert_eq!(parsed.tcp.dst_port.port, 443);
+        assert_eq!(parsed.ipv4.src_ip, [10, 0, 0, 1]);
+        assert_eq!(parsed.ipv4.dst_ip, [10, 0, 0, 2]);
+        assert_eq!(parsed.ipv4.ttl, 64);
+        assert_eq!(parsed.ipv4.protocol, 6);
+        assert_eq!(parsed.ethernet.ethertype, Ethertype::new(0x0800));
+    }
+
+    #[test]
+    fn test_parse_syn_packet() {
+        let packet = build_tcp_ipv4_packet(80, 54321, 0x02, 22, 0x0303);
+        let parsed = parse_tcp_ipv4(&packet).expect("should parse");
+        assert!(parsed.tcp.flags.syn);
+        assert!(!parsed.tcp.flags.ack);
+        assert!(!parsed.tcp.flags.fin);
+    }
+
+    #[test]
+    fn test_parse_syn_ack_packet() {
+        let packet = build_tcp_ipv4_packet(80, 54321, 0x12, 22, 0x0303);
+        let parsed = parse_tcp_ipv4(&packet).expect("should parse");
+        assert!(parsed.tcp.flags.syn);
+        assert!(parsed.tcp.flags.ack);
+    }
+
+    #[test]
+    fn test_parse_fin_ack_packet() {
+        let packet = build_tcp_ipv4_packet(80, 54321, 0x11, 22, 0x0303);
+        let parsed = parse_tcp_ipv4(&packet).expect("should parse");
+        assert!(parsed.tcp.flags.fin);
+        assert!(parsed.tcp.flags.ack);
+    }
+
+    #[test]
+    fn test_parse_too_short_returns_none() {
+        assert!(parse_tcp_ipv4(&[0u8; 10]).is_none());
+    }
+
+    #[test]
+    fn test_parse_no_ethernet_returns_none() {
+        assert!(parse_tcp_ipv4(&[]).is_none());
+    }
+
+    #[test]
+    fn test_parse_tcp_flags_all_ones() {
+        let packet = build_tcp_ipv4_packet(80, 443, 0xFF, 22, 0x0303);
+        let parsed = parse_tcp_ipv4(&packet).expect("should parse");
+        assert!(parsed.tcp.flags.cwr);
+        assert!(parsed.tcp.flags.ece);
+        assert!(parsed.tcp.flags.urg);
+        assert!(parsed.tcp.flags.ack);
+        assert!(parsed.tcp.flags.psh);
+        assert!(parsed.tcp.flags.rst);
+        assert!(parsed.tcp.flags.syn);
+        assert!(parsed.tcp.flags.fin);
+    }
+
+    #[test]
+    fn test_tcp_flags_from_byte_syn() {
+        let flags = TcpFlags::from_byte(0x02);
+        assert!(flags.syn);
+        assert!(!flags.ack);
+        assert!(!flags.fin);
+        assert!(!flags.rst);
+        assert!(!flags.psh);
+        assert!(!flags.urg);
+        assert!(!flags.ece);
+        assert!(!flags.cwr);
+    }
+
+    #[test]
+    fn test_tcp_flags_from_byte_ack() {
+        let flags = TcpFlags::from_byte(0x10);
+        assert!(flags.ack);
+        assert!(!flags.syn);
+    }
+
+    #[test]
+    fn test_tcp_flags_from_byte_all_zero() {
+        let flags = TcpFlags::from_byte(0x00);
+        assert!(flags.is_empty());
+    }
+
+    #[test]
+    fn test_tcp_flags_from_byte_all_ones() {
+        let flags = TcpFlags::from_byte(0xFF);
+        assert!(!flags.is_empty());
+        assert!(flags.cwr);
+        assert!(flags.ece);
+        assert!(flags.urg);
+        assert!(flags.ack);
+        assert!(flags.psh);
+        assert!(flags.rst);
+        assert!(flags.syn);
+        assert!(flags.fin);
+    }
+
+    #[test]
+    fn test_tls_from_data_handshake_tls12() {
+        let data = [22, 0x03, 0x03, 0x00, 0x01, 0x00]; // Handshake, TLS 1.2, len=1
+        let tls = TlsRecord::from_data(&data);
+        assert_eq!(tls.content_type, Some(TlsContentType::Handshake));
+        assert_eq!(tls.version, "TLS 1.2");
+        assert_eq!(tls.length, 1);
+    }
+
+    #[test]
+    fn test_tls_from_data_application_data_tls13() {
+        let data = [23, 0x03, 0x04, 0x00, 0x10, 0x00]; // ApplicationData, TLS 1.3, len=16
+        let tls = TlsRecord::from_data(&data);
+        assert_eq!(tls.content_type, Some(TlsContentType::ApplicationData));
+        assert_eq!(tls.version, "TLS 1.3");
+        assert_eq!(tls.length, 16);
+    }
+
+    #[test]
+    fn test_tls_from_data_alert_tls10() {
+        let data = [21, 0x03, 0x01, 0x00, 0x02, 0x00]; // Alert, TLS 1.0, len=2
+        let tls = TlsRecord::from_data(&data);
+        assert_eq!(tls.content_type, Some(TlsContentType::Alert));
+        assert_eq!(tls.version, "TLS 1.0");
+    }
+
+    #[test]
+    fn test_tls_from_data_change_cipher_spec() {
+        let data = [20, 0x03, 0x03, 0x00, 0x00, 0x00]; // ChangeCipherSpec, TLS 1.2
+        let tls = TlsRecord::from_data(&data);
+        assert_eq!(tls.content_type, Some(TlsContentType::ChangeCipherSpec));
+    }
+
+    #[test]
+    fn test_tls_from_data_unknown_content_type() {
+        let data = [99, 0x03, 0x03, 0x00, 0x00, 0x00]; // unknown type
+        let tls = TlsRecord::from_data(&data);
+        assert_eq!(tls.content_type, None);
+    }
+
+    #[test]
+    fn test_tls_from_data_unknown_version() {
+        let data = [22, 0x00, 0x00, 0x00, 0x00, 0x00]; // unknown version
+        let tls = TlsRecord::from_data(&data);
+        assert_eq!(tls.version, "Unknown");
+    }
+
+    #[test]
+    fn test_tls_content_type_display() {
+        assert_eq!(TlsContentType::Handshake.to_string(), "Handshake");
+        assert_eq!(TlsContentType::Alert.to_string(), "Alert");
+        assert_eq!(TlsContentType::ApplicationData.to_string(), "Application Data");
+        assert_eq!(TlsContentType::ChangeCipherSpec.to_string(), "Change Cipher Spec");
+    }
+
+    #[test]
+    fn test_tls_content_type_to_byte() {
+        assert_eq!(TlsContentType::ChangeCipherSpec.to_byte(), 20);
+        assert_eq!(TlsContentType::Alert.to_byte(), 21);
+        assert_eq!(TlsContentType::Handshake.to_byte(), 22);
+        assert_eq!(TlsContentType::ApplicationData.to_byte(), 23);
+    }
+
+    #[test]
+    fn test_port_lookup_in_map() {
+        let mut map: HashMap<u16, Vec<u32>> = HashMap::new();
+        map.insert(443, vec![1234]);
+        map.insert(80, vec![5678, 9012]);
+
+        assert_eq!(map.get(&443).and_then(|pids| pids.first().copied()), Some(1234));
+        assert_eq!(map.get(&80).and_then(|pids| pids.first().copied()), Some(5678));
+        assert_eq!(map.get(&9999).and_then(|pids| pids.first().copied()), None);
+    }
+
+    #[test]
+    fn test_port_lookup_src_or_dst() {
+        let mut map: HashMap<u16, Vec<u32>> = HashMap::new();
+        map.insert(80, vec![100]);
+        map.insert(443, vec![200]);
+
+        let src_port = 12345u16;
+        let dst_port = 443u16;
+
+        let pid = map.get(&src_port)
+            .or_else(|| map.get(&dst_port))
+            .and_then(|pids| pids.first().copied());
+
+        assert_eq!(pid, Some(200));
+    }
+
+    #[test]
+    fn test_port_lookup_no_match() {
+        let map: HashMap<u16, Vec<u32>> = HashMap::new();
+
+        let pid = map.get(&80u16)
+            .or_else(|| map.get(&443u16))
+            .and_then(|pids| pids.first().copied());
+
+        assert_eq!(pid, None);
+    }
+
+    #[test]
+    fn test_port_lookup_multiple_pids() {
+        let mut map: HashMap<u16, Vec<u32>> = HashMap::new();
+        map.insert(80, vec![100, 200, 300]);
+
+        let pid = map.get(&80u16).and_then(|pids| pids.first().copied());
+        assert_eq!(pid, Some(100));
+    }
+
+    #[test]
+    fn test_port_lookup_shared_port() {
+        let mut map: HashMap<u16, Vec<u32>> = HashMap::new();
+        map.entry(80).or_default().extend([100, 200]);
+
+        assert_eq!(map.get(&80).unwrap(), &vec![100, 200]);
     }
 }
 
