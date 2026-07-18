@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use crate::ethertypes::Ethertype;
 use crate::ports::Port;
+use crate::PORT_TO_PIDS;
 
 fn ascii_repr(byte: u8) -> char {
     if byte.is_ascii_graphic() || byte == b' ' {

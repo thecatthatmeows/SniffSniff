@@ -13,7 +13,7 @@ use tokio::sync::RwLock;
 use lazy_static::lazy_static;
 
 lazy_static! {
-    static ref PORT_TO_PIDS: RwLock<HashMap<u16, Vec<u32>>> = RwLock::new(HashMap::new());
+    pub static ref PORT_TO_PIDS: RwLock<HashMap<u16, Vec<u32>>> = RwLock::new(HashMap::new());
 }
 
 #[tokio::main]
