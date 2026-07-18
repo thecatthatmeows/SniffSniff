@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use sysinfo::{Pid, ProcessesToUpdate, System};
+
 use crate::ethertypes::Ethertype;
 use crate::ports::Port;
 use crate::PORT_TO_PIDS;
@@ -200,7 +202,7 @@ impl TlsRecord {
 #[derive(Default)]
 pub struct DisplayPacketOptions {
     pub show_payload: bool,
-    pub filter_by_uid: Option<u32>,
+    pub filter_by_pid: Option<u32>,
 }
 
 pub struct ParsedPacket {
@@ -211,12 +213,30 @@ pub struct ParsedPacket {
 }
 
 impl ParsedPacket {
-    pub fn print(&self, display_options: Option<DisplayPacketOptions>) {
+    pub async fn print(&self, display_options: Option<DisplayPacketOptions>) {
+        let mut sys = System::new_all();
+
         if let Some(options) = display_options {
-            self.ethernet.print();
-            self.ipv4.print();
-            self.tcp.print(options.show_payload);
-            self.tls.print();
+            println!("Options detected");
+            if let Some(filter_pid) = options.filter_by_pid {
+                println!("Filter pid detected {}", filter_pid);
+                let pid_info = {
+                    let map = PORT_TO_PIDS.read().await;
+                    map.get(&self.tcp.src_port.port)
+                        .or_else(|| map.get(&self.tcp.dst_port.port))
+                        .and_then(|pids| pids.first().copied())
+                };
+                let extracted_pid = pid_info.unwrap();
+                if extracted_pid == filter_pid {
+                    println!("Extracted pid {} == filter pid {}", extracted_pid, filter_pid);
+                    self.ethernet.print();
+                    self.ipv4.print();
+                    self.tcp.print(options.show_payload);
+                    self.tls.print();
+                } else {
+                    println!("Extracted pid {} != filter pid {}", extracted_pid, filter_pid);
+                }
+            }
         } else {
             self.ethernet.print();
             self.ipv4.print();

@@ -20,7 +20,6 @@ lazy_static! {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let mut sys = System::new_all();
     let af_flags = AddressFamilyFlags::all();
     let proto_flags = ProtocolFlags::all();
     let sockets_info = get_sockets_info(af_flags, proto_flags).expect("Couldn't get sockets info");
@@ -58,9 +57,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(parsed) = parser::parse_tcp_ipv4(data) {
             let options = DisplayPacketOptions {
                 show_payload: args.show_payload,
-                filter_by_uid: args.process_uid
+                filter_by_pid: args.pid
             };
-            parsed.print(Some(options));
+            parsed.print(Some(options)).await;
         }
     }
 
