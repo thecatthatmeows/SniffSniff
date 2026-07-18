@@ -32,6 +32,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ProtocolSocketInfo::Udp(udp) => udp.local_port,
         };
         port_to_pids.insert(port, si.associated_pids.clone());
+        port_to_pids.entry(port).or_default()
+            .extend(si.associated_pids.iter().copied());
     }
     {
         let mut w = PORT_TO_PIDS.write().await;
