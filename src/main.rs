@@ -31,7 +31,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ProtocolSocketInfo::Tcp(tcp) => tcp.local_port,
             ProtocolSocketInfo::Udp(udp) => udp.local_port,
         };
-        port_to_pids.insert(port, si.associated_pids.clone());
         port_to_pids.entry(port).or_default()
             .extend(si.associated_pids.iter().copied());
     }
@@ -53,10 +52,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut packet_count = 0;
     while let Ok(packet) = cap.next_packet() {
         packet_count += 1;
-        println!("=== Packet {} ===", packet_count);
         let data = packet.data;
 
         if let Some(parsed) = parser::parse_tcp_ipv4(data) {
+            println!("=== Packet {} ===", packet_count);
             let options = DisplayPacketOptions {
                 show_payload: args.show_payload,
                 filter_by_pid: args.pid

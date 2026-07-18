@@ -217,25 +217,28 @@ impl ParsedPacket {
         let mut sys = System::new_all();
 
         if let Some(options) = display_options {
-            println!("Options detected");
+            // println!("Options detected");
             if let Some(filter_pid) = options.filter_by_pid {
-                println!("Filter pid detected {}", filter_pid);
+                // println!("Filter pid detected {}", filter_pid);
                 let pid_info = {
                     let map = PORT_TO_PIDS.read().await;
                     map.get(&self.tcp.src_port.port)
                         .or_else(|| map.get(&self.tcp.dst_port.port))
                         .and_then(|pids| pids.first().copied())
                 };
-                let extracted_pid = pid_info.unwrap();
-                if extracted_pid == filter_pid {
-                    println!("Extracted pid {} == filter pid {}", extracted_pid, filter_pid);
-                    self.ethernet.print();
-                    self.ipv4.print();
-                    self.tcp.print(options.show_payload);
-                    self.tls.print();
-                } else {
-                    println!("Extracted pid {} != filter pid {}", extracted_pid, filter_pid);
-                }
+                pid_info.and_then(|extracted_pid| {
+                    if extracted_pid == filter_pid {
+                        // println!("Extracted pid {} == filter pid {}", extracted_pid, filter_pid);
+                        self.ethernet.print();
+                        self.ipv4.print();
+                        self.tcp.print(options.show_payload);
+                        self.tls.print();
+                        Some(())
+                    } else {
+                        // println!("Extracted pid {} != filter pid {}", extracted_pid, filter_pid);
+                        None
+                    }
+                });
             }
         } else {
             self.ethernet.print();
