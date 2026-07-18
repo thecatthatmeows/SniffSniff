@@ -4,19 +4,28 @@ mod ports;
 mod cli;
 
 use std::collections::HashMap;
-
+use sysinfo::{System, Pid};
 use clap::Parser;
 use netstat2::{AddressFamilyFlags, ProtocolFlags, ProtocolSocketInfo, get_sockets_info};
 use pcap::Capture;
 use crate::{cli::Args, parser::DisplayPacketOptions};
+use tokio::sync::RwLock;
+use lazy_static::lazy_static;
 
-fn main() {
+lazy_static! {
+    static ref PORT_TO_PIDS: RwLock<HashMap<u16, Vec<u32>>> = RwLock::new(HashMap::new());
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
+    let mut sys = System::new_all();
     let af_flags = AddressFamilyFlags::all();
     let proto_flags = ProtocolFlags::all();
     let sockets_info = get_sockets_info(af_flags, proto_flags).expect("Couldn't get sockets info");
 
+    // set every processes sockets ports first
     let mut port_to_pids: HashMap<u16, Vec<u32>> = HashMap::new();
     for si in &sockets_info {
         let port = match &si.protocol_socket_info {
@@ -24,6 +33,10 @@ fn main() {
             ProtocolSocketInfo::Udp(udp) => udp.local_port,
         };
         port_to_pids.insert(port, si.associated_pids.clone());
+    }
+    {
+        let mut w = PORT_TO_PIDS.write().await;
+        *w = port_to_pids;
     }
 
     println!("Capturing");
@@ -45,8 +58,11 @@ fn main() {
         if let Some(parsed) = parser::parse_tcp_ipv4(data) {
             let options = DisplayPacketOptions {
                 show_payload: args.show_payload,
+                filter_by_uid: args.process_uid
             };
             parsed.print(Some(options));
         }
     }
+
+    Ok(())
 }

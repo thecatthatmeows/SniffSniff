@@ -199,6 +199,7 @@ impl TlsRecord {
 #[derive(Default)]
 pub struct DisplayPacketOptions {
     pub show_payload: bool,
+    pub filter_by_uid: Option<u32>,
 }
 
 pub struct ParsedPacket {
