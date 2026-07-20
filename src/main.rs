@@ -80,6 +80,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 filter_by_pid: args.pid
             };
             parsed.print(Some(options)).await;
+        } else if let Some(parsed) = parser::parse_udp_ipv4(data) {
+            println!("{}", format!("=== Packet {} ===", packet_count).white().bold());
+            let options = DisplayPacketOptions {
+                show_payload: args.show_payload,
+                filter_by_pid: args.pid
+            };
+            parsed.print(Some(options)).await;
         }
     }
 
