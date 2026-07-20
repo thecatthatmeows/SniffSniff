@@ -53,6 +53,30 @@ pub struct DisplayPacketOptions {
     pub filter_by_pid: Option<u32>,
 }
 
+pub fn parse_ethernet_and_ipv4(data: &[u8]) -> Option<(EthernetHeader, IPv4Header, u8)> {
+    if data.len() < 14 { return None; }
+
+    let ethernet = EthernetHeader {
+        dst_mac: data[0..6].to_vec(),
+        src_mac: data[6..12].to_vec(),
+        ethertype: Ethertype::from_ethernet(data),
+    };
+
+    let ip = &data[14..];
+    if ip.len() < 20 { return None; }
+
+    let ihl = (ip[0] & 0x0f) * 4;
+
+    let ipv4 = IPv4Header {
+        src_ip: [ip[12], ip[13], ip[14], ip[15]],
+        dst_ip: [ip[16], ip[17], ip[18], ip[19]],
+        ttl: ip[8],
+        protocol: ip[9],
+    };
+
+    Some((ethernet, ipv4, ihl))
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;

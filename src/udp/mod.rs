@@ -1,7 +1,6 @@
 use colored::Colorize;
 
-use crate::ethertypes::Ethertype;
-use crate::parser::{EthernetHeader, IPv4Header, DisplayPacketOptions, ascii_repr};
+use crate::parser::{parse_ethernet_and_ipv4, EthernetHeader, IPv4Header, DisplayPacketOptions, ascii_repr};
 use crate::ports::Port;
 use crate::PORT_TO_PIDS;
 
@@ -69,28 +68,11 @@ impl ParsedUdpPacket {
 }
 
 pub fn parse_udp_ipv4(data: &[u8]) -> Option<ParsedUdpPacket> {
-    if data.len() < 14 { return None; }
-
-    let ethernet = EthernetHeader {
-        dst_mac: data[0..6].to_vec(),
-        src_mac: data[6..12].to_vec(),
-        ethertype: Ethertype::from_ethernet(data),
-    };
-
-    let ip = &data[14..];
-    if ip.len() < 20 { return None; }
-
-    let ihl = (ip[0] & 0x0f) * 4;
-
-    let ipv4 = IPv4Header {
-        src_ip: [ip[12], ip[13], ip[14], ip[15]],
-        dst_ip: [ip[16], ip[17], ip[18], ip[19]],
-        ttl: ip[8],
-        protocol: ip[9],
-    };
+    let (ethernet, ipv4, ihl) = parse_ethernet_and_ipv4(data)?;
 
     if ipv4.protocol != 17 { return None; }
 
+    let ip = &data[14..];
     let total_len = u16::from_be_bytes([ip[2], ip[3]]);
     if ip.len() < total_len as usize { return None; }
     if ip.len() < ihl as usize { return None; }
@@ -119,6 +101,7 @@ pub fn parse_udp_ipv4(data: &[u8]) -> Option<ParsedUdpPacket> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ethertypes::Ethertype;
 
     fn build_udp_ipv4_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
         let mut packet = Vec::new();
