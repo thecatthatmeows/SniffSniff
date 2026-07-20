@@ -5,6 +5,7 @@ mod cli;
 
 use std::collections::HashMap;
 use clap::Parser;
+use colored::Colorize;
 use netstat2::{AddressFamilyFlags, ProtocolFlags, ProtocolSocketInfo, get_sockets_info};
 use pcap::Capture;
 use crate::{cli::Args, parser::DisplayPacketOptions};
@@ -46,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let mut sys = System::new_all();
     refresh_port_to_pids_map().await;
 
-    println!("Capturing");
+    println!("{}", "Capturing...".green().bold());
     let mut cap = Capture::from_device("wlp0s20f3").unwrap()
         .promisc(true)
         .snaplen(65535)
@@ -54,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
 
     let link_type = cap.get_datalink();
-    println!("Link type: {}", link_type.get_name().unwrap_or("Unknown".to_string()));
+    println!("  {} {}", "Link type:".dimmed(), link_type.get_name().unwrap_or("Unknown".to_string()).cyan());
 
     let mut packet_count = 0;
     while let Ok(packet) = cap.next_packet() {
@@ -65,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let data = packet.data;
 
         if let Some(parsed) = parser::parse_tcp_ipv4(data) {
-            println!("=== Packet {} ===", packet_count);
+            println!("{}", format!("=== Packet {} ===", packet_count).white().bold());
             let options = DisplayPacketOptions {
                 show_payload: args.show_payload,
                 filter_by_pid: args.pid

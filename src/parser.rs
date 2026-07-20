@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use colored::Colorize;
 
 use crate::ethertypes::Ethertype;
 use crate::ports::Port;
@@ -22,10 +23,10 @@ impl EthernetHeader {
     pub fn print(&self) {
         let dst = self.dst_mac.iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(":");
         let src = self.src_mac.iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(":");
-        println!("[Ethernet]");
-        println!("  Dst MAC: {}", dst);
-        println!("  Src MAC: {}", src);
-        println!("  Type: {}", self.ethertype);
+        println!("{}", "[Ethernet]".cyan().bold());
+        println!("  {} {}", "Dst MAC:".dimmed(), dst.cyan());
+        println!("  {} {}", "Src MAC:".dimmed(), src.cyan());
+        println!("  {} {}", "Type:".dimmed(), self.ethertype);
     }
 }
 
@@ -38,11 +39,11 @@ pub struct IPv4Header {
 
 impl IPv4Header {
     pub fn print(&self) {
-        println!("[IPv4]");
-        println!("  Src: {}.{}.{}.{}", self.src_ip[0], self.src_ip[1], self.src_ip[2], self.src_ip[3]);
-        println!("  Dst: {}.{}.{}.{}", self.dst_ip[0], self.dst_ip[1], self.dst_ip[2], self.dst_ip[3]);
-        println!("  TTL: {}", self.ttl);
-        println!("  Protocol: {}", self.protocol);
+        println!("{}", "[IPv4]".blue().bold());
+        println!("  {} {}.{}.{}.{}", "Src:".dimmed(), self.src_ip[0], self.src_ip[1], self.src_ip[2], self.src_ip[3]);
+        println!("  {} {}.{}.{}.{}", "Dst:".dimmed(), self.dst_ip[0], self.dst_ip[1], self.dst_ip[2], self.dst_ip[3]);
+        println!("  {} {}", "TTL:".dimmed(), self.ttl);
+        println!("  {} {}", "Protocol:".dimmed(), self.protocol);
     }
 }
 
@@ -78,14 +79,14 @@ impl TcpFlags {
 
     pub fn print(&self) {
         let mut flags = Vec::new();
-        if self.cwr { flags.push("CWR"); }
-        if self.ece { flags.push("ECE"); }
-        if self.urg { flags.push("URG"); }
-        if self.ack { flags.push("ACK"); }
-        if self.psh { flags.push("PSH"); }
-        if self.rst { flags.push("RST"); }
-        if self.syn { flags.push("SYN"); }
-        if self.fin { flags.push("FIN"); }
+        if self.cwr { flags.push("CWR".dimmed().to_string()); }
+        if self.ece { flags.push("ECE".dimmed().to_string()); }
+        if self.urg { flags.push("URG".magenta().to_string()); }
+        if self.ack { flags.push("ACK".green().to_string()); }
+        if self.psh { flags.push("PSH".yellow().to_string()); }
+        if self.rst { flags.push("RST".red().to_string()); }
+        if self.syn { flags.push("SYN".cyan().to_string()); }
+        if self.fin { flags.push("FIN".red().to_string()); }
         print!("[{}]", flags.join(", "));
     }
 }
@@ -99,18 +100,18 @@ pub struct TcpHeader {
 
 impl TcpHeader {
     pub fn print(&self, show_payload: bool) {
-        println!("[TCP]");
-        println!("  Src Port: {}", self.src_port);
-        println!("  Dst Port: {}", self.dst_port);
-        print!("  Flags: ");
+        println!("{}", "[TCP]".green().bold());
+        println!("  {} {}", "Src Port:".dimmed(), self.src_port);
+        println!("  {} {}", "Dst Port:".dimmed(), self.dst_port);
+        print!("  {} ", "Flags:".dimmed());
         self.flags.print();
         println!();
 
-        println!("  Payload ({} bytes)", self.payload.len());
+        println!("  {} ({} bytes)", "Payload:".dimmed(), self.payload.len());
         if show_payload {
             for (i, chunk) in self.payload.chunks(16).enumerate() {
                 let ascii: String = chunk.iter().map(|b| ascii_repr(*b)).collect();
-                println!("{:04x}    {:02x?}  |  {}", i*16, chunk, ascii);
+                println!("{:04x}    {:02x?}  |  {}", i*16, chunk, ascii.dimmed());
             }
         }
     }
@@ -190,10 +191,10 @@ impl TlsRecord {
     }
 
     pub fn print(&self) {
-        println!("[TLS]");
-        println!("   Content Type: {:?}", self.content_type);
-        println!("   Version: {}", self.version);
-        println!("   Length: {}", self.length);
+        println!("{}", "[TLS]".yellow().bold());
+        println!("   {} {:?}", "Content Type:".dimmed(), self.content_type);
+        println!("   {} {}", "Version:".dimmed(), self.version.yellow());
+        println!("   {} {}", "Length:".dimmed(), self.length);
     }
 }
 
