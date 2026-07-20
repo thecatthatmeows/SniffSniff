@@ -2,6 +2,8 @@ mod ethertypes;
 mod parser;
 mod ports;
 mod cli;
+mod tcp;
+mod udp;
 
 use std::collections::HashMap;
 use clap::Parser;
