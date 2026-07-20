@@ -259,40 +259,36 @@ mod tests {
     ) -> Vec<u8> {
         let mut packet = Vec::new();
 
-        // Ethernet header (14 bytes)
-        packet.extend_from_slice(&[0x00, 0x11, 0x22, 0x33, 0x44, 0x55]); // dst MAC
-        packet.extend_from_slice(&[0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb]); // src MAC
-        packet.extend_from_slice(&[0x08, 0x00]); // ethertype: IPv4
+        packet.extend_from_slice(&[0x00, 0x11, 0x22, 0x33, 0x44, 0x55]);
+        packet.extend_from_slice(&[0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb]);
+        packet.extend_from_slice(&[0x08, 0x00]);
 
-        // IPv4 header (20 bytes, no options)
-        let total_len: u16 = 20 + 20 + 5; // IP + TCP + TLS payload
-        packet.push(0x45); // version=4, ihl=5
-        packet.push(0x00); // DSCP/ECN
-        packet.extend_from_slice(&total_len.to_be_bytes()); // total length
-        packet.extend_from_slice(&[0x00, 0x00]); // identification
-        packet.extend_from_slice(&[0x00, 0x00]); // flags + fragment offset
-        packet.push(64); // TTL
-        packet.push(6); // protocol: TCP
-        packet.extend_from_slice(&[0x00, 0x00]); // checksum (ignored in test)
-        packet.extend_from_slice(&[10, 0, 0, 1]); // src IP
-        packet.extend_from_slice(&[10, 0, 0, 2]); // dst IP
+        let total_len: u16 = 20 + 20 + 5;
+        packet.push(0x45);
+        packet.push(0x00);
+        packet.extend_from_slice(&total_len.to_be_bytes());
+        packet.extend_from_slice(&[0x00, 0x00]);
+        packet.extend_from_slice(&[0x00, 0x00]);
+        packet.push(64);
+        packet.push(6);
+        packet.extend_from_slice(&[0x00, 0x00]);
+        packet.extend_from_slice(&[10, 0, 0, 1]);
+        packet.extend_from_slice(&[10, 0, 0, 2]);
 
-        // TCP header (20 bytes minimum)
         packet.extend_from_slice(&src_port.to_be_bytes());
         packet.extend_from_slice(&dst_port.to_be_bytes());
-        packet.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // seq number
-        packet.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // ack number
-        packet.push(0x50); // data offset=5, reserved=0
-        packet.push(flags); // flags
-        packet.extend_from_slice(&[0x00, 0x00]); // window size
-        packet.extend_from_slice(&[0x00, 0x00]); // checksum
-        packet.extend_from_slice(&[0x00, 0x00]); // urgent pointer
+        packet.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]);
+        packet.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]);
+        packet.push(0x50);
+        packet.push(flags);
+        packet.extend_from_slice(&[0x00, 0x00]);
+        packet.extend_from_slice(&[0x00, 0x00]);
+        packet.extend_from_slice(&[0x00, 0x00]);
 
-        // TLS payload (5 bytes minimum)
         packet.push(tls_content_type);
         let version_bytes = tls_version.to_be_bytes();
         packet.extend_from_slice(&version_bytes);
-        packet.extend_from_slice(&[0x00, 0x01]); // length: 1 byte
+        packet.extend_from_slice(&[0x00, 0x01]);
 
         packet
     }
@@ -402,7 +398,7 @@ mod tests {
 
     #[test]
     fn test_tls_from_data_handshake_tls12() {
-        let data = [22, 0x03, 0x03, 0x00, 0x01, 0x00]; // Handshake, TLS 1.2, len=1
+        let data = [22, 0x03, 0x03, 0x00, 0x01, 0x00];
         let tls = TlsRecord::from_data(&data);
         assert_eq!(tls.content_type, Some(TlsContentType::Handshake));
         assert_eq!(tls.version, "TLS 1.2");
@@ -411,7 +407,7 @@ mod tests {
 
     #[test]
     fn test_tls_from_data_application_data_tls13() {
-        let data = [23, 0x03, 0x04, 0x00, 0x10, 0x00]; // ApplicationData, TLS 1.3, len=16
+        let data = [23, 0x03, 0x04, 0x00, 0x10, 0x00];
         let tls = TlsRecord::from_data(&data);
         assert_eq!(tls.content_type, Some(TlsContentType::ApplicationData));
         assert_eq!(tls.version, "TLS 1.3");
@@ -420,7 +416,7 @@ mod tests {
 
     #[test]
     fn test_tls_from_data_alert_tls10() {
-        let data = [21, 0x03, 0x01, 0x00, 0x02, 0x00]; // Alert, TLS 1.0, len=2
+        let data = [21, 0x03, 0x01, 0x00, 0x02, 0x00];
         let tls = TlsRecord::from_data(&data);
         assert_eq!(tls.content_type, Some(TlsContentType::Alert));
         assert_eq!(tls.version, "TLS 1.0");
@@ -428,21 +424,21 @@ mod tests {
 
     #[test]
     fn test_tls_from_data_change_cipher_spec() {
-        let data = [20, 0x03, 0x03, 0x00, 0x00, 0x00]; // ChangeCipherSpec, TLS 1.2
+        let data = [20, 0x03, 0x03, 0x00, 0x00, 0x00];
         let tls = TlsRecord::from_data(&data);
         assert_eq!(tls.content_type, Some(TlsContentType::ChangeCipherSpec));
     }
 
     #[test]
     fn test_tls_from_data_unknown_content_type() {
-        let data = [99, 0x03, 0x03, 0x00, 0x00, 0x00]; // unknown type
+        let data = [99, 0x03, 0x03, 0x00, 0x00, 0x00];
         let tls = TlsRecord::from_data(&data);
         assert_eq!(tls.content_type, None);
     }
 
     #[test]
     fn test_tls_from_data_unknown_version() {
-        let data = [22, 0x00, 0x00, 0x00, 0x00, 0x00]; // unknown version
+        let data = [22, 0x00, 0x00, 0x00, 0x00, 0x00];
         let tls = TlsRecord::from_data(&data);
         assert_eq!(tls.version, "Unknown");
     }
@@ -466,7 +462,6 @@ mod tests {
     #[test]
     fn test_parse_tcp_wrong_protocol_returns_none() {
         let mut packet = build_tcp_ipv4_packet(80, 443, 0x12, 22, 0x0303);
-        // change protocol from TCP (6) to UDP (17)
         packet[23] = 17;
         assert!(parse_tcp_ipv4(&packet).is_none());
     }

@@ -123,32 +123,28 @@ mod tests {
     fn build_udp_ipv4_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
         let mut packet = Vec::new();
 
-        // Ethernet header (14 bytes)
-        packet.extend_from_slice(&[0x00, 0x11, 0x22, 0x33, 0x44, 0x55]); // dst MAC
-        packet.extend_from_slice(&[0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb]); // src MAC
-        packet.extend_from_slice(&[0x08, 0x00]); // ethertype: IPv4
+        packet.extend_from_slice(&[0x00, 0x11, 0x22, 0x33, 0x44, 0x55]);
+        packet.extend_from_slice(&[0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb]);
+        packet.extend_from_slice(&[0x08, 0x00]);
 
-        // IPv4 header (20 bytes, no options)
         let udp_len = 8 + payload.len() as u16;
         let total_len: u16 = 20 + udp_len;
-        packet.push(0x45); // version=4, ihl=5
-        packet.push(0x00); // DSCP/ECN
-        packet.extend_from_slice(&total_len.to_be_bytes()); // total length
-        packet.extend_from_slice(&[0x00, 0x00]); // identification
-        packet.extend_from_slice(&[0x00, 0x00]); // flags + fragment offset
-        packet.push(64); // TTL
-        packet.push(17); // protocol: UDP
-        packet.extend_from_slice(&[0x00, 0x00]); // checksum
-        packet.extend_from_slice(&[10, 0, 0, 1]); // src IP
-        packet.extend_from_slice(&[10, 0, 0, 2]); // dst IP
+        packet.push(0x45);
+        packet.push(0x00);
+        packet.extend_from_slice(&total_len.to_be_bytes());
+        packet.extend_from_slice(&[0x00, 0x00]);
+        packet.extend_from_slice(&[0x00, 0x00]);
+        packet.push(64);
+        packet.push(17);
+        packet.extend_from_slice(&[0x00, 0x00]);
+        packet.extend_from_slice(&[10, 0, 0, 1]);
+        packet.extend_from_slice(&[10, 0, 0, 2]);
 
-        // UDP header (8 bytes)
         packet.extend_from_slice(&src_port.to_be_bytes());
         packet.extend_from_slice(&dst_port.to_be_bytes());
         packet.extend_from_slice(&udp_len.to_be_bytes());
-        packet.extend_from_slice(&[0x00, 0x00]); // checksum
+        packet.extend_from_slice(&[0x00, 0x00]);
 
-        // payload
         packet.extend_from_slice(payload);
 
         packet
@@ -186,7 +182,6 @@ mod tests {
     #[test]
     fn test_parse_udp_wrong_protocol_returns_none() {
         let mut packet = build_udp_ipv4_packet(53, 12345, b"test");
-        // change protocol from UDP (17) to TCP (6)
         packet[23] = 6;
         assert!(parse_udp_ipv4(&packet).is_none());
     }
