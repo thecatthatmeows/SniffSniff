@@ -2,8 +2,8 @@ use colored::Colorize;
 
 use crate::ethertypes::Ethertype;
 
-pub use crate::tcp::{TcpFlags, TcpHeader, TlsContentType, TlsRecord, ParsedPacket, parse_tcp_ipv4};
-pub use crate::udp::{UdpHeader, ParsedUdpPacket, parse_udp_ipv4};
+pub use crate::tcp::parse_tcp_ipv4;
+pub use crate::udp::parse_udp_ipv4;
 
 pub fn ascii_repr(byte: u8) -> char {
     if byte.is_ascii_graphic() || byte == b' ' {

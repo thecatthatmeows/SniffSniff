@@ -1,5 +1,4 @@
 use std::fmt;
-use pcap::Linktype;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Ethertype {
