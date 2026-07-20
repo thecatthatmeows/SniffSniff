@@ -7,6 +7,9 @@ pub struct Args {
     pub show_payload: bool,
 
     #[arg(short, long)]
-    pub pid: Option<u32>
+    pub pid: Option<u32>,
+
+    #[arg(short, long)]
+    pub count: Option<u32>,
 }
 

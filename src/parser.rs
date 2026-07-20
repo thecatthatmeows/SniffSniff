@@ -235,6 +235,11 @@ impl ParsedPacket {
                         None
                     }
                 });
+            } else {
+                self.ethernet.print();
+                self.ipv4.print();
+                self.tcp.print(options.show_payload);
+                self.tls.print();
             }
         } else {
             self.ethernet.print();
