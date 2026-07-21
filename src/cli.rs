@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 
 #[derive(Parser)]
@@ -11,5 +13,8 @@ pub struct Args {
 
     #[arg(short, long)]
     pub count: Option<u32>,
+
+    #[arg(short, long)]
+    pub file: Option<PathBuf>
 }
 

@@ -1,4 +1,5 @@
 use colored::Colorize;
+use pcap::{Capture, Active, Offline, Packet};
 
 use crate::ethertypes::Ethertype;
 
@@ -75,6 +76,27 @@ pub fn parse_ethernet_and_ipv4(data: &[u8]) -> Option<(EthernetHeader, IPv4Heade
     };
 
     Some((ethernet, ipv4, ihl))
+}
+
+pub enum PacketCapture {
+    Live(Capture<Active>),
+    File(Capture<Offline>),
+}
+
+impl PacketCapture {
+    pub fn next_packet(&mut self) -> Result<Packet<'_>, pcap::Error> {
+        match self {
+            Self::Live(c) => c.next_packet(),
+            Self::File(c) => c.next_packet(),
+        }
+    }
+
+    pub fn get_datalink(&self) -> pcap::Linktype {
+        match self {
+            Self::Live(c) => c.get_datalink(),
+            Self::File(c) => c.get_datalink(),
+        }
+    }
 }
 
 #[cfg(test)]

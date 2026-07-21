@@ -10,7 +10,7 @@ use clap::Parser;
 use colored::Colorize;
 use netstat2::{AddressFamilyFlags, ProtocolFlags, ProtocolSocketInfo, get_sockets_info};
 use pcap::Capture;
-use crate::{cli::Args, parser::DisplayPacketOptions};
+use crate::{cli::Args, parser::{DisplayPacketOptions, PacketCapture}};
 use tokio::sync::RwLock;
 use lazy_static::lazy_static;
 
@@ -50,11 +50,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     refresh_port_to_pids_map().await;
 
     println!("{}", "Capturing...".green().bold());
-    let mut cap = Capture::from_device("wlp0s20f3").unwrap()
-        .promisc(true)
-        .snaplen(65535)
-        .open()
-        .unwrap();
+    let mut cap = {
+        if let Some(pcap_file) = args.file {
+            PacketCapture::File(Capture::from_file(pcap_file).unwrap())
+        } else {
+            PacketCapture::Live(Capture::from_device("wlp0s20f3").unwrap()
+                .promisc(true)
+                .snaplen(65535)
+                .open()
+                .unwrap())
+        }
+    };
 
     let link_type = cap.get_datalink();
     println!("  {} {}", "Link type:".dimmed(), link_type.get_name().unwrap_or("Unknown".to_string()).cyan());
@@ -79,7 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("{}", format!("=== Packet {} ===", packet_count).white().bold());
             let options = DisplayPacketOptions {
                 show_payload: args.show_payload,
-                filter_by_pid: args.pid
+                filter_by_pid: args.pid,
             };
             parsed.print(Some(options)).await;
         } else if let Some(parsed) = parser::parse_udp_ipv4(data) {
