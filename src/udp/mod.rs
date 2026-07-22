@@ -42,6 +42,7 @@ impl ParsedUdpPacket {
                 let pid_info = {
                     let map = PORT_TO_PIDS.read().await;
                     map.get(&self.udp.src_port.port)
+                        .or_else(|| map.get(&self.udp.dst_port.port))
                         .and_then(|pids| pids.first().copied())
                 };
                 pid_info.and_then(|extracted_pid| {
