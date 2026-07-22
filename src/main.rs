@@ -73,7 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         packet_count += 1;
 
         if let Some(max) = args.count {
-            if packet_count > max {
+            if packet_count >= max {
                 println!("{}", format!("Captured {} packets, stopping.", max).green().bold());
                 break;
             }
